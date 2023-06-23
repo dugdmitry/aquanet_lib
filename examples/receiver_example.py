@@ -14,6 +14,11 @@ This is an example how to initialize and send user messages over aquanet-lib and
 from __init__ import *
 
 
+# call this function when receiving messages
+def callback(msg):
+    print("Callback on received msg:", msg)
+
+
 def main():
     # Initialize aquanet-stack
     nodeAddr = 2
@@ -25,7 +30,7 @@ def main():
     try:
         # Receive messages from AquaNet
         print("receiving messages from AquaNet")
-        aquaNetManager.recv()
+        aquaNetManager.recv(callback)
 
     except KeyboardInterrupt:
         print("Keyboard interrupt received. Exiting gracefully.")

@@ -60,7 +60,7 @@ class AquaNetManager:
         except socket.error as e:
             print("Error binding the socket:", e)
             self.recv_socket.close()
-            return        
+            return
         self.recv_socket.listen(5)
 
         # start AquaNet stack
@@ -111,21 +111,21 @@ class AquaNetManager:
             print("Error sending data:", e)
 
     ## Receive from AquaNet
-    def recv(self):
+    def recv(self, callback):
         # Accept a client connection
         client_sock, client_addr = self.recv_socket.accept()
+
+        # Receive data from the client
         while True:
-            print("Receiving data...")
-            # Receive data from the client
-            data = client_sock.recv(1024).decode()
+            data = client_sock.recv(1024)
             if not data:  # If empty bytes object is received, the sender has closed the connection
                 print("Sender has closed the connection.")
                 break
             # Process the received data
-            print("Received data from client:", data)
+            callback(data)
 
-        # # Close the client socket
-        # client_sock.close()
+        # Close the client socket
+        client_sock.close()
 
     ## Check if specific TCP port taken, to ensure that VMDS is already running
     def isPortTaken(self, port):
