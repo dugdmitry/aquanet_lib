@@ -14,7 +14,10 @@ This module provides methods to interact with AquaNet communication stack via Un
 import subprocess
 import socket
 import time
-import os
+from io import BytesIO
+
+# import some ros-python module for serialization/deserialization
+from uuv_control_msgs.msg import Waypoint
 
 
 # Global parameters
@@ -110,8 +113,26 @@ class AquaNetManager:
         except socket.error as e:
             print("Error sending data:", e)
 
+
+    ## Publish ROS message to AquaNet stack, do serialization
+    def publish(self, rosMsg):
+        print("Publishing ROS message...")
+        buff = BytesIO()
+        rosMsg.serialize(buff)
+        bytestring = buff.getvalue()
+        serialized_msg = bytearray(bytestring)
+        print("Serialized msg:", serialized_msg)
+        print(type(serialized_msg))
+        self.send(serialized_msg)
+
+        # # deserialize msg
+        # recvRosMsg = Waypoint()
+        # recvRosMsg.deserialize(serialized_msg)
+        # print("Deserialized msg:", recvRosMsg)
+
+
     ## Receive from AquaNet
-    def recv(self, callback):
+    def recv(self, callback, deserialize=False):
         # Accept a client connection
         client_sock, client_addr = self.recv_socket.accept()
 
@@ -122,7 +143,14 @@ class AquaNetManager:
                 print("Sender has closed the connection.")
                 break
             # Process the received data
-            callback(data)
+            if deserialize:
+                # deserialize ros msg
+                recvRosMsg = Waypoint()
+                recvRosMsg.deserialize(data)
+                print("Deserialized msg:", recvRosMsg)
+                callback(recvRosMsg)
+            else:
+                callback(data)
 
         # Close the client socket
         client_sock.close()
