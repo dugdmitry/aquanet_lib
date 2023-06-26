@@ -116,13 +116,12 @@ class AquaNetManager:
 
     ## Publish ROS message to AquaNet stack, do serialization
     def publish(self, rosMsg):
-        print("Publishing ROS message...")
+        print("Publishing ROS message:")
+        print(rosMsg)
         buff = BytesIO()
         rosMsg.serialize(buff)
         bytestring = buff.getvalue()
         serialized_msg = bytearray(bytestring)
-        print("Serialized msg:", serialized_msg)
-        print(type(serialized_msg))
         self.send(serialized_msg)
 
         # # deserialize msg
@@ -144,6 +143,7 @@ class AquaNetManager:
                 break
             # Process the received data
             if deserialize:
+                print("Received msg:", data)
                 # deserialize ros msg
                 recvRosMsg = Waypoint()
                 recvRosMsg.deserialize(data)
