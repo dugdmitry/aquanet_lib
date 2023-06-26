@@ -197,7 +197,7 @@ Only one-way unicast communication is currently supported. When intializing Aqua
 
 The support for 2-way unicast and broadcast (1 to many) communication is currently a work in progress.
 
-## Limitation 2:
+### Limitation 2:
 
 No underwater channel emulation implemented yet. When packets are sent from one node to another, they pass through the `AquaNet-VMDS` process that interconnects multiple aquanet instances together. Currently, this process just forwards packets to the receivers without introducing channel `delay`, `jitter` or `packet loss`.
 
