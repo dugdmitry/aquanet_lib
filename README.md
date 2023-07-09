@@ -19,12 +19,12 @@ To initialize AquaNet stack and start sending/receiving messages, use the follow
 	destAddr = 2    # destination node address
 	baseFolder = "/home/user/ros_catkin_ws/src/multi_auv_sim/scripts/backup/aquanet_lib"    # base folder of your scripting program
     # create the manager object
-	aquaNetManager = aquanet_lib.AquaNetManager(nodeAddr, destAddr, baseFolder)
+	aquaNetManager = aquanet_lib.AquaNetManager(nodeAddr, baseFolder)
     # initialize aquanet stack
     aquaNetManager.initAquaNet()
 
     # to send messages
-    aquaNetManager.send(("hello".encode())
+    aquaNetManager.send(("hello".encode(), destAddr)
 
     # to receive messages
     aquaNetManager.recv(recv_callback)
