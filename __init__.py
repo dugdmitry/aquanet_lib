@@ -17,7 +17,10 @@ import time
 from io import BytesIO
 
 # import some ros-python module for serialization/deserialization
-from uuv_control_msgs.msg import Waypoint
+try:
+    from uuv_control_msgs.msg import Waypoint
+except ImportError:
+    print("Warning: ros_uuv plugin not found")
 
 
 # Global parameters
@@ -28,9 +31,8 @@ VMDS_PORT = "2021"
 ## Class for handling send/recv communication with underlying AquaNet stack
 class AquaNetManager:
     ## Constructor
-    def __init__(self, nodeId, destId, baseFolder):
+    def __init__(self, nodeId, baseFolder):
         self.nodeId = nodeId
-        self.destId = destId
         self.baseFolder = baseFolder
         self.workingDir = baseFolder + "/tmp" + "/node" + str(self.nodeId)
         self.socketSendPath = self.workingDir + "/socket_send"
@@ -93,7 +95,7 @@ class AquaNetManager:
         time.sleep(0.5)
 
         print("starting application layer...")
-        subprocess.Popen(["../../bin/aquanet-socket-interface " + str(self.nodeId) + " " + str(self.destId) + " " + self.socketSendPath + " " + self.socketRecvPath], cwd=self.workingDir, shell=True)
+        subprocess.Popen(["../../bin/aquanet-socket-interface " + str(self.nodeId) + " " + self.socketSendPath + " " + self.socketRecvPath], cwd=self.workingDir, shell=True)
         time.sleep(0.5)
 
         # Connect to unix socket for sending data
@@ -106,8 +108,11 @@ class AquaNetManager:
 
 
     ## Send to AquaNet
-    def send(self, message):
+    def send(self, message, destAddr):
         try:
+            # set the destAddr first
+            self.send_socket.sendall(destAddr.to_bytes(2, 'little'))
+            # send the message right after
             self.send_socket.sendall(message)
             print("Message sent:", message)
         except socket.error as e:
@@ -115,14 +120,14 @@ class AquaNetManager:
 
 
     ## Publish ROS message to AquaNet stack, do serialization
-    def publish(self, rosMsg):
+    def publish(self, rosMsg, destAddr):
         print("Publishing ROS message:")
         print(rosMsg)
         buff = BytesIO()
         rosMsg.serialize(buff)
         bytestring = buff.getvalue()
         serialized_msg = bytearray(bytestring)
-        self.send(serialized_msg)
+        self.send(serialized_msg, destAddr)
 
         # # deserialize msg
         # recvRosMsg = Waypoint()

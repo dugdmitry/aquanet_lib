@@ -22,9 +22,8 @@ def callback(msg):
 def main():
     # Initialize aquanet-stack
     nodeAddr = 2
-    destAddr = 1
     baseFolder = "/home/dmitrii/aquanet_lib"
-    aquaNetManager = AquaNetManager(nodeAddr, destAddr, baseFolder)
+    aquaNetManager = AquaNetManager(nodeAddr, baseFolder)
     aquaNetManager.initAquaNet()
 
     try:

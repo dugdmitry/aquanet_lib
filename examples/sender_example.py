@@ -20,13 +20,13 @@ def main():
     nodeAddr = 1
     destAddr = 2
     baseFolder = "/home/dmitrii/aquanet_lib"
-    aquaNetManager = AquaNetManager(nodeAddr, destAddr, baseFolder)
+    aquaNetManager = AquaNetManager(nodeAddr, baseFolder)
     aquaNetManager.initAquaNet()
 
     # Send message to AquaNet
     print("sending messages to AquaNet")
     for i in range(10):
-        aquaNetManager.send(("hello: " + str(i)).encode())
+        aquaNetManager.send(("hello: " + str(i)).encode(), destAddr)
         time.sleep(1)
 
     # stop aquanet stack at the end
