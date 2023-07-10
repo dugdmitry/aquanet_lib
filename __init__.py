@@ -128,7 +128,7 @@ class AquaNetManager:
         rosMsg.serialize(buff)
         bytestring = buff.getvalue()
         serialized_msg = bytearray(bytestring)
-        self.send(serialized_msg, self.aquanet_publish_addr)
+        self.send(serialized_msg, self.publishAddr)
 
         # # deserialize msg
         # recvRosMsg = Waypoint()
