@@ -135,19 +135,19 @@ https://uuvsimulator.github.io/installation/
 
 https://uuvsimulator.github.io/packages/uuv_plume_simulator/intro/
 
-In `examples/uuv` folder, you can find examples of the modified `leader.py` and `node2.py` scripts alongisde with necessary launch files to run a plume-tracing scenario. The communication between `leader` and `node2` is conducted over AquaNet stack using `aquanet_lib` library.
+In `examples/uuv` folder, you can find examples of the modified `leader1.py` and `node2.py` scripts alongisde with necessary launch files to run a plume-tracing scenario. The communication between `leader1` and `node2` is conducted over AquaNet stack using `aquanet_lib` library.
 
 Step 1: Run ROV simulation:
 
     roslaunch multi_auv_sim multi_rov_test.launch
 
-RViz window should appear, visualizing 5 ROVs. The communication over AquaNet is established in 1-way unicast way from `leader` to `node2`.
+RViz window should appear, visualizing 5 ROVs. The communication over AquaNet is established in 1-way unicast way from `leader1` to `node2`.
 
 Step 2: Run plume-tracing script:
 
     roslaunch multi_auv_sim start_mbplume.launch
 
-You should see the following output in the terminal, indicating that `aquanet_lib` has published a ROS message from `leader` towards `node2`:
+You should see the following output in the terminal, indicating that `aquanet_lib` has published a ROS message from `leader1` towards `node2`:
 
 ```
 Publishing ROS message:
@@ -209,7 +209,7 @@ The software is still very experimental and in the early stage of development. T
 
 Thus, please be aware that the software may crash or become unresponsive. When this happens, please follow the following general algorithm:
 
-1) Stop all the sender/receiver scripts that you're running. E.g., `sender_example.py` script, `leader.py`, `node2.py`, `start_mbplume.launch` and `multi_rov_test.launch` files, etc.
+1) Stop all the sender/receiver scripts that you're running. E.g., `sender_example.py` script, `leader1.py`, `node2.py`, `start_mbplume.launch` and `multi_rov_test.launch` files, etc.
 
 2) In a separate terminal, kill all the AquaNet-related processes by executing `scripts/stack-stop.sh` script.
 
