@@ -55,9 +55,8 @@ def readauvpose(msg):
 if __name__=='__main__':
     ## Initialize aquanet-stack
 	nodeAddr = 2
-	destAddr = 1
 	baseFolder = "/home/user/ros_catkin_ws/src/multi_auv_sim/scripts/backup/aquanet_lib"
-	aquaNetManager = aquanet_lib.AquaNetManager(nodeAddr, destAddr, baseFolder)
+	aquaNetManager = aquanet_lib.AquaNetManager(nodeAddr, baseFolder)
 	aquaNetManager.initAquaNet()
     ##
 

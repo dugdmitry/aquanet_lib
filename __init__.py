@@ -39,6 +39,7 @@ class AquaNetManager:
         self.socketRecvPath = self.workingDir + "/socket_recv"
         self.send_socket = 0
         self.recv_socket = 0
+        self.publishAddr = 0    # store default publishing address when using publish() method
 
         # refresh working directory from previous sessions
         subprocess.Popen("rm -r " + self.workingDir, shell=True)
@@ -120,20 +121,23 @@ class AquaNetManager:
 
 
     ## Publish ROS message to AquaNet stack, do serialization
-    def publish(self, rosMsg, destAddr):
+    def publish(self, rosMsg):
         print("Publishing ROS message:")
         print(rosMsg)
         buff = BytesIO()
         rosMsg.serialize(buff)
         bytestring = buff.getvalue()
         serialized_msg = bytearray(bytestring)
-        self.send(serialized_msg, destAddr)
+        self.send(serialized_msg, self.aquanet_publish_addr)
 
         # # deserialize msg
         # recvRosMsg = Waypoint()
         # recvRosMsg.deserialize(serialized_msg)
         # print("Deserialized msg:", recvRosMsg)
 
+    ## Set the publishing address when using publish() method to send ros-messages
+    def setPublishAddr(self, publishAddr):
+        self.publishAddr = publishAddr
 
     ## Receive from AquaNet
     def recv(self, callback, deserialize=False):

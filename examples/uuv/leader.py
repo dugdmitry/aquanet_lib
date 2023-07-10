@@ -417,7 +417,9 @@ if __name__=='__main__':
 	nodeAddr = 1
 	destAddr = 2
 	baseFolder = "/home/user/ros_catkin_ws/src/multi_auv_sim/scripts/backup/aquanet_lib"
-	aquaNetManager = aquanet_lib.AquaNetManager(nodeAddr, destAddr, baseFolder)
+	aquaNetManager = aquanet_lib.AquaNetManager(nodeAddr, baseFolder)
+	# set default publish address of the destination node
+	aquaNetManager.setPublishAddr(destAddr)
 	# delay the initialization to avoid simutaneous start of AquaNet processes
 	time.sleep(5)
 	aquaNetManager.initAquaNet()
