@@ -15,6 +15,7 @@ import subprocess
 import socket
 import time
 from io import BytesIO
+import struct
 
 # import some ros-python module for serialization/deserialization
 try:
@@ -112,7 +113,7 @@ class AquaNetManager:
     def send(self, message, destAddr):
         try:
             # set the destAddr first
-            self.send_socket.sendall(destAddr.to_bytes(2, 'little'))
+            self.send_socket.sendall(struct.pack("<h", destAddr))
             # send the message right after
             self.send_socket.sendall(message)
             print("Message sent:", message)
