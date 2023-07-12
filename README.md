@@ -189,15 +189,204 @@ radius_of_acceptance: 0.0)
 Algorithm state: Find
 ```
 
+## Example 3: Basic Broadcast Example
+
+This example shows basic broadcast operation.
+
+Under `examples/broadcast` folder, you find 4 scripts: `broadcast_sender.py`, `receiver_1.py`, `receiver_2.py` and `receiver_3.py`.
+
+`broadcast_sender.py` generates periodic broadcast `hello` messages and send them to all the nodes connected to the network, i.e. receiver 1, 2 and 3.
+
+To run the example, run `receiver_1.py`, `receiver_2.py` and `receiver_3.py` in three different terminals:
+
+```
+cd examples/broadcast
+./receiver_1.py
+./receiver_2.py
+./receiver_3.py
+```
+
+From each terminal, you should see the output, similar to the Example 1.
+
+Then, in a separate terminal, run the sender script:
+
+```
+./broadcast_sender.py
+```
+
+The sender should start broadcasting messages by executing `send()` function with the special `broadcast` address specified (see line 31). The defualt aquanet broadcast address is `255`.
+
+You should see the following output:
+
+```
+----------------------------------------------------------
+		AQUANET-SOCKET-INTERFACE 
+The socket-interface application for Aqua-Net
+Developed by Dmitrii Dugaev
+All rights reserved
+----------------------------------------------------------
+
+X:1:1-11203851>[socket-interface]	Starting AQUANET-SOCKET-INTERFACE.
+X:1:1-11203851>[socket-interface]	unix-domain socket created and listening for incoming connections
+X:1:1-11203851>[     stack]	Application Module Connected.
+broadcasting messages to AquaNet
+X:1:1-11203851>[socket-interface]	Client connected. Receiving data...
+X:1:1-11203851>[socket-interface]	dest_addr: 255
+Message sent: b'broadcast hello: 0'
+X:1:1-11203851>[socket-interface]	received from unix-socket: broadcast hello: 0
+X:1:1-11203851>[socket-interface]	sending 18 bytes from 1 to 255
+X:1:1-11203851>[     stack]	Got 1 connection.
+X:1:1-11203851>[     stack]	Received 18 bytes from app layer
+X:1:1-11203851>[       tra]	received 18 bytes
+X:1:1-11203851>[     stack]	Got 1 connection.
+X:1:1-11203851>[     stack]	Received 22 bytes from tra layer
+X:1:1-11203851>[    sroute]	Received 22 bytes
+X:1:1-11203851>[    sroute]	Next Hop for 255: Node 255
+X:1:1-11203851>[     stack]	Got 1 connection.
+X:1:1-11203851>[     stack]	Received 32 bytes from net layer
+X:1:1-11203851>[     bcmac]	Node 1 : Get Packet from upper layer & cache it
+X:1:1-11203851>Node 1 : Send Packet in 0 seconds 16840 microseconds
+X:1:1-11203851>[     stack]	Got 1 connection.
+X:1:1-11203851>[     stack]	Received 42 bytes from mac layer
+X:1:1-11203851>[      vmdc]	Got 1 connection
+X:1:1-11203851>[      vmdc]	Got packets from the protocol stack
+X:1:1-11203851>[      vmdc]	received 664 bytes from protocol stack:broadcast hello: 0
+X:1:1-11203851>[      vmdc]	modem_send: sent 664 bytes
+Message sent: b'broadcast hello: 1'
+...
+```
+
+Each receiver should output the following message when the broadcast message is received:
+
+```
+...
+X:3:3-11203900>[socket-interface]	received from 1 to 255: broadcast hello: 9
+Callback on received msg: b'broadcast hello: 9'
+...
+```
+
+## Example 4: Swarm-tracing algorithm in Gazebo+UUV with 1 leader-node broadcasting to 4 receiver-nodes.
+
+This example is similar to Example 2. The only difference is that the `leader1.py` **broadcasts** messages to **all** 4 nodes in the simulation scenario, i.e. to `node2.py`, `node3.py`, `node4.py` and `node5.py`.
+
+The corresponding modified scripts for `leader1.py`, `node2.py`, `node3.py`, `node4.py` and `node5.py` can be found under `examples/broadcast_uuv/` folder.
+
+To run the Gazebo+UVV scenario please follow the steps from Example 2. I.e. run `multi_rov_test.launch` first, followed by `start_mbplume.launch`.
+
+You should observe the output, similar to Example 2. With the only difference, that the `Waypoint` message is received by all 4 recepients simultaneously:
+
+```
+...
+('Received msg:', '\x00\x00\x00\x00W\x00\x00\x00\x80,\xea\x18\x05\x00\x00\x00world\xf0;\x0c\x8af\x93Q\xc0\xb8\x978\x14;yP\xc03\xbf\xbe>\xe0\xfc*\xc0\x00\x00\x00\x00\x00\x00\xe8?\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+user-gazebo:5:5-10103057>[     stack]	Received 84 bytes from net layer
+user-gazebo:4:4-10103057>[     stack]	Got 1 connection.
+user-gazebo:4:4-10103057>[     stack]	Received 664 bytes from phy layer
+user-gazebo:5:5-10103057>[       tra]	received 74 bytes
+user-gazebo:5:5-10103057>[     stack]	Got 1 connection.
+user-gazebo:5:5-10103057>[     stack]	Received 74 bytes from tra layer
+user-gazebo:4:4-10103057>Node 4 : Get Packet from node 1 & send it to upper layer
+
+user-gazebo:4:4-10103057>[     stack]	Got 1 connection.
+user-gazebo:5:5-10103057>[socket-interface]	received from 1 to 255: 
+user-gazebo:4:4-10103057>[     stack]	Received 84 bytes from mac layer
+('Received msg:', '\x00\x00\x00\x00W\x00\x00\x00\x80,\xea\x18\x05\x00\x00\x00world\xf0;\x0c\x8af\x93Q\xc0\xb8\x978\x14;yP\xc03\xbf\xbe>\xe0\xfc*\xc0\x00\x00\x00\x00\x00\x00\xe8?\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+user-gazebo:4:4-10103057>[    sroute]	Received 84 bytes
+user-gazebo:4:4-10103057>[    sroute]	It's for me, receive it
+user-gazebo:4:4-10103057>[     stack]	Got 1 connection.
+user-gazebo:4:4-10103057>[     stack]	Received 84 bytes from net layer
+user-gazebo:4:4-10103057>[       tra]	received 74 bytes
+user-gazebo:4:4-10103057>[     stack]	Got 1 connection.
+user-gazebo:4:4-10103057>[     stack]	Received 74 bytes from tra layer
+
+user-gazebo:4:4-10103057>[socket-interface]	received from 1 to 255: 
+('Deserialized msg:', header: 
+  seq: 0
+  stamp: 
+    secs: 87
+    nsecs: 418000000
+  frame_id: "world"
+point: 
+  x: -70.3031334991
+  y: -65.8942308953
+  z: -13.4938983543
+max_forward_speed: 0.75
+heading_offset: 0.0
+use_fixed_heading: False
+radius_of_acceptance: 0.0)
+('Received msg:', '\x00\x00\x00\x00W\x00\x00\x00\x80,\xea\x18\x05\x00\x00\x00world\xf0;\x0c\x8af\x93Q\xc0\xb8\x978\x14;yP\xc03\xbf\xbe>\xe0\xfc*\xc0\x00\x00\x00\x00\x00\x00\xe8?\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+('Deserialized msg:', header: 
+  seq: 0
+  stamp: 
+    secs: 87
+    nsecs: 418000000
+  frame_id: "world"
+point: 
+  x: -70.3031334991
+  y: -65.8942308953
+  z: -13.4938983543
+max_forward_speed: 0.75
+heading_offset: 0.0
+use_fixed_heading: False
+radius_of_acceptance: 0.0)
+('Deserialized msg:', header: 
+  seq: 0
+  stamp: 
+    secs: 87
+    nsecs: 418000000
+  frame_id: "world"
+point: 
+  x: -70.3031334991
+  y: -65.8942308953
+  z: -13.4938983543
+max_forward_speed: 0.75
+heading_offset: 0.0
+use_fixed_heading: False
+radius_of_acceptance: 0.0)
+user-gazebo:2:2-10103057>[     stack]	Got 1 connection.
+user-gazebo:2:2-10103057>[     stack]	Received 664 bytes from phy layer
+user-gazebo:2:2-10103057>Node 2 : Get Packet from node 1 & send it to upper layer
+user-gazebo:2:2-10103057>[     stack]	Got 1 connection.
+user-gazebo:2:2-10103057>[     stack]	Received 84 bytes from mac layer
+user-gazebo:2:2-10103057>[    sroute]	Received 84 bytes
+user-gazebo:2:2-10103057>[    sroute]	It's for me, receive it
+user-gazebo:2:2-10103057>[     stack]	Got 1 connection.
+user-gazebo:2:2-10103057>[     stack]	Received 84 bytes from net layer
+user-gazebo:2:2-10103057>[       tra]	received 74 bytes
+user-gazebo:2:2-10103057>[     stack]	Got 1 connection.
+user-gazebo:2:2-10103057>[     stack]	Received 74 bytes from tra layer
+
+user-gazebo:2:2-10103057>[socket-interface]	received from 1 to 255: 
+('Received msg:', '\x00\x00\x00\x00W\x00\x00\x00\x80,\xea\x18\x05\x00\x00\x00world\xf0;\x0c\x8af\x93Q\xc0\xb8\x978\x14;yP\xc03\xbf\xbe>\xe0\xfc*\xc0\x00\x00\x00\x00\x00\x00\xe8?\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+('Deserialized msg:', header: 
+  seq: 0
+  stamp: 
+    secs: 87
+    nsecs: 418000000
+  frame_id: "world"
+point: 
+  x: -70.3031334991
+  y: -65.8942308953
+  z: -13.4938983543
+max_forward_speed: 0.75
+heading_offset: 0.0
+use_fixed_heading: False
+radius_of_acceptance: 0.0)
+Algorithm state: Find
+...
+```
+
+
 ## Current limitations
 
-### Limitation 1:
+### Limited topology and MAC/routing protocol support:
 
-Only one-way unicast communication is currently supported. When intializing AquaNet stack via `AquanetManager`, a user must specify the sender address and the destination address. So, the communication is established in 1-way direction from single sender to single receiver.
+Current implementation has been tested **only** with `Static` routing at L3, and `Broadcast MAC` at L2. The `Static` routing uses a pre-defined routing table (see `configs/config_net.cfg` file). The `Broadcast MAC` is similar to `Pure ALOHA` protocol that sends packets with no channel sensing, and with some `jitter` to mitigate simultaneous transmissions from multiple nodes.
 
-The support for 2-way unicast and broadcast (1 to many) communication is currently a work in progress.
+The other potential L3/L2 protocols are either not supported or should be tested later. This includes `ALOHA`, `SFAMA` and `TRUMAC` at L2, and `Dynamic` routing at L3.
 
-### Limitation 2:
+In addition, the network topology is limited to `1-hop` network **only**, meaning that all nodes are directly connected with each other. This means, if a node sends a `unicast` message, the message will go directly to the recepient, with no relays in-between. When a node sends a `broadcast` message, the message is received directly by all the nodes, and the Routing layer **does not relay** this message back to the network (e.g., for `Flooding` purposes).
+
+### No channel emulation features:
 
 No underwater channel emulation implemented yet. When packets are sent from one node to another, they pass through the `AquaNet-VMDS` process that interconnects multiple aquanet instances together. Currently, this process just forwards packets to the receivers without introducing channel `delay`, `jitter` or `packet loss`.
 
