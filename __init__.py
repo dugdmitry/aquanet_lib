@@ -23,6 +23,9 @@ try:
 except ImportError:
     print("Warning: ros_uuv plugin not found")
 
+# channel emulation parameters
+from emulation_config import *
+
 
 # Global parameters
 VMDS_ADDR = "127.0.0.1"
@@ -81,7 +84,7 @@ class AquaNetManager:
         time.sleep(0.5)
 
         print("starting VMDM client...")
-        subprocess.Popen(["../../bin/aquanet-vmdc", VMDS_ADDR, VMDS_PORT, str(self.nodeId), "0", "0", "0"], cwd=self.workingDir)
+        subprocess.Popen(["../../bin/aquanet-vmdc", VMDS_ADDR, VMDS_PORT, str(self.nodeId), "0", "0", "0", str(PLR), str(CHANNEL_DELAY_MS), str(CHANNEL_JITTER)], cwd=self.workingDir)
         time.sleep(0.5)
 
         print("starting MAC protocol...")
