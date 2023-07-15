@@ -375,6 +375,40 @@ Algorithm state: Find
 ...
 ```
 
+## Channel emulation configuration
+
+`AquaNet-Lib` now provides basic support for channel emulation functionality. This includes three parameters: `packet loss rate`, `channel delay` and `channel jitter`.
+
+`Packet loss rate` determines a percentage of packets that get randomly dropped while traversing over the emulated channel. `Channel delay` emulates channel latency, and `channel jitter` adds random variation to the channel delay.
+
+To control the emulation parameters, `emulation_config.py` file should be modified with the desired values. The default parameters in `emulation_config.py` define 1% of packet losses, 500ms of delay with 10% of random jitter:
+
+```
+"""
+Define channel emulation parameters here:
+
+1) PLR - Packet Loss Ratio:
+Defines a fraction of packets that are randomly dropped in the channel.
+Range: [0.0, 1.0], where 0.0 - no packets dropped; 1.0 - all packets dropped
+
+2) Channel delay, ms:
+Defines for how long a packet stays in the channel, emulating the network latency, in milliseconds.
+
+3) Channel jitter:
+Adds randomness to the channel delay.
+Range: [0.0, 0.1]
+E.g.:
+If channel jitter is 0.1 and delay is 500ms, then the actual delay will be randomly picked wihtin [500 - 50, 500 + 50] range.
+
+"""
+
+PLR = 0.01                      # one percent
+CHANNEL_DELAY_MS = 500          # milliseconds
+CHANNEL_JITTER = 0.1            # add 10% of randomness to channel delay
+
+```
+
+Make sure that `emulation_config.py` is created and initialized with proper values before initializing the aquanet stack via `initAquaNet()`.
 
 ## Current limitations
 
