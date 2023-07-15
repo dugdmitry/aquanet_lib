@@ -420,12 +420,6 @@ The other potential L3/L2 protocols are either not supported or should be tested
 
 In addition, the network topology is limited to `1-hop` network **only**, meaning that all nodes are directly connected with each other. This means, if a node sends a `unicast` message, the message will go directly to the recepient, with no relays in-between. When a node sends a `broadcast` message, the message is received directly by all the nodes, and the Routing layer **does not relay** this message back to the network (e.g., for `Flooding` purposes).
 
-### No channel emulation features:
-
-No underwater channel emulation implemented yet. When packets are sent from one node to another, they pass through the `AquaNet-VMDS` process that interconnects multiple aquanet instances together. Currently, this process just forwards packets to the receivers without introducing channel `delay`, `jitter` or `packet loss`.
-
-This chanel emulation feature is to be implemented in the upcoming versions.
-
 ## Troubleshooting
 
 The software is still very experimental and in the early stage of development. There might be significant changes done to both the program design and user interfaces in the future.
