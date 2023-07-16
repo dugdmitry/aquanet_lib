@@ -46,17 +46,17 @@ class AquaNetManager:
         self.publishAddr = 0    # store default publishing address when using publish() method
 
         # refresh working directory from previous sessions
-        subprocess.Popen("rm -r " + self.workingDir, shell=True)
-        subprocess.Popen("mkdir -p " + self.workingDir, shell=True)
+        subprocess.Popen("rm -r " + self.workingDir, shell=True).wait()
+        subprocess.Popen("mkdir -p " + self.workingDir, shell=True).wait()
         # create aquanet config files
-        subprocess.Popen("touch " + self.workingDir + "/config_add.cfg", shell=True)
-        subprocess.Popen("echo " + str(self.nodeId) + " : " + str(self.nodeId) + " > " + self.workingDir + "/config_add.cfg", shell=True)
+        subprocess.Popen("touch " + self.workingDir + "/config_add.cfg", shell=True).wait()
+        subprocess.Popen("echo " + str(self.nodeId) + " : " + str(self.nodeId) + " > " + self.workingDir + "/config_add.cfg", shell=True).wait()
         # copy arp, conn and route configurations
-        subprocess.Popen("cp " + baseFolder + "/configs/" + "config_arp.cfg" + " " + self.workingDir, shell=True)
-        subprocess.Popen("cp " + baseFolder + "/configs/" + "config_conn.cfg" + " " + self.workingDir, shell=True)
-        subprocess.Popen("cp " + baseFolder + "/configs/" + "config_net.cfg" + " " + self.workingDir, shell=True)
+        subprocess.Popen("cp " + baseFolder + "/configs/" + "config_arp.cfg" + " " + self.workingDir, shell=True).wait()
+        subprocess.Popen("cp " + baseFolder + "/configs/" + "config_conn.cfg" + " " + self.workingDir, shell=True).wait()
+        subprocess.Popen("cp " + baseFolder + "/configs/" + "config_net.cfg" + " " + self.workingDir, shell=True).wait()
         # copy bc-mac configuration file
-        subprocess.Popen("cp " + baseFolder + "/configs/" + "aquanet-bcmac.cfg" + " " + self.workingDir, shell=True)
+        subprocess.Popen("cp " + baseFolder + "/configs/" + "aquanet-bcmac.cfg" + " " + self.workingDir, shell=True).wait()
 
     ## Initialize AquaNet processes
     def initAquaNet(self):
