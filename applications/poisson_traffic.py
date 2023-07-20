@@ -20,7 +20,7 @@ from threading import Thread
 import struct
 import string
 import random
-
+import sys
 
 # Import aquanet_lib module
 from __init__ import *
@@ -29,9 +29,7 @@ from __init__ import *
 AQUANET_NODE_ID = 1     # address of local/source node
 AQUANET_DEST_ID = 2     # destination address of generated messages
 AQUANET_BASE_FOLDER = "/home/dmitrii/aquanet_lib"
-
-# Define Poisson parameters
-LAMBDA = 0.01       # pkts/sec
+AQUANET_MAX_PAYLOAD_SIZE_BYTES = 500    # maximum user payload allowed by AquaNet app stack
 
 
 # create, serialize/deserialize a message with the following format:
@@ -52,7 +50,7 @@ class Message:
         payload_length = len(self.payload)
         self.crc = self.calculate_crc()
         message_format = '>BI{}sB'.format(payload_length)
-        print(message_format)
+        # print(message_format)
         message_data = struct.pack(message_format, self.src_id, self.seq_no, self.payload.encode(), self.crc)
         return bytearray(message_data)
 
@@ -65,9 +63,11 @@ class Message:
         payload, crc = struct.unpack(payload_format, message_bytearray[5:])
         return Message(src_id, seq_no, payload, crc)
 
+
 # return random delay in milliseconds, according to Poisson/exponential distribution
-def poisson_ms(l):
-    return 1000
+def poisson_ms(rate):
+    time_interval = random.expovariate(rate)
+    return time_interval * 1000     # in milliseconds
 
 
 # generate next random message
@@ -79,20 +79,16 @@ def generateMsg(src_id, seq_no, str_length):
     # payload = "Hello, World!"
     payload = generate_random_string(str_length)
 
-    # Creating a message object
+    # create a message object
     message = Message(src_id, seq_no, payload)
+    return message.toBytes()
 
-    # Converting the message to a bytearray
-    message_bytearray = message.toBytes()
-    print(message_bytearray)
-    print(len(message_bytearray))
-
-    # Converting the bytearray back to a message object
-    reconstructed_message = Message.fromBytes(message_bytearray)
-    print(reconstructed_message.src_id)
-    print(reconstructed_message.seq_no)
-    print(reconstructed_message.payload)
-    print(reconstructed_message.crc)
+    # # Converting the bytearray back to a message object
+    # reconstructed_message = Message.fromBytes(message_bytearray)
+    # print(reconstructed_message.src_id)
+    # print(reconstructed_message.seq_no)
+    # print(reconstructed_message.payload)
+    # print(reconstructed_message.crc)
 
 
 # receive thread
@@ -110,7 +106,7 @@ def receive(aquaNet):
 
 
 # init AquaNet, init receive thread, keep sending in main thread
-def main():
+def main(lambda_rate, msg_size):
     # initialize aquanet-stack
     aquaNetManager = AquaNetManager(AQUANET_NODE_ID, AQUANET_BASE_FOLDER)
     aquaNetManager.initAquaNet()
@@ -119,14 +115,25 @@ def main():
     recvThread = Thread(target=receive, args=(aquaNetManager,))
     recvThread.start()
 
+    # check if lambda is zero. If yes, do not generate any traffic, just sleep
+    try:
+        while lambda_rate == 0.0:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("Keyboard interrupt received. Exiting gracefully.")
+        aquaNetManager.stop()
+        return 0
+
     # keep sending messages to AquaNet
     print("start sending messages to AquaNet")
     try:
         i = 0
         while True:
-            generateMsg(AQUANET_NODE_ID, i, 44)
-            aquaNetManager.send(("hello: " + str(i)).encode(), AQUANET_DEST_ID)
-            time.sleep(1)
+            msg = generateMsg(AQUANET_NODE_ID, i, msg_size)
+            aquaNetManager.send(msg, AQUANET_DEST_ID)
+            delay = round(poisson_ms(lambda_rate) / 1000., 2)
+            print("Sending message after a delay of {} seconds.".format(delay))
+            time.sleep(delay)
             i += 1
     except KeyboardInterrupt:
         print("Keyboard interrupt received. Exiting gracefully.")
@@ -135,7 +142,29 @@ def main():
     # stop aquanet stack at the end
     recvThread.join()
     aquaNetManager.stop()
+    return 0
 
 
 if __name__ == '__main__':
-    main()
+    # Parse command line arguments
+    if len(sys.argv) != 3:
+        print("Usage: ./poisson_traffic <lambda_rate> <message_size_bytes>")
+        sys.exit(1)
+    try:
+        lambda_rate = float(sys.argv[1])
+        message_size_bytes = int(sys.argv[2])
+    except ValueError:
+        print("Invalid arguments. Lambda rate must be a float, and message size must be an integer.")
+        sys.exit(1)
+    if (lambda_rate < 0.0):
+        print("Lambda rate must be bigger than zero.")
+        sys.exit(1)
+    if (message_size_bytes < 1 or message_size_bytes > AQUANET_MAX_PAYLOAD_SIZE_BYTES):
+        print("Lambda rate must be bigger than zero.")
+        sys.exit(1)
+    # switch to listening mode only, if lambda is zero
+    if (lambda_rate == 0.0):
+        print("Lambda rate is set to zero. No traffic generation, only listening.")
+
+    # run program
+    main(lambda_rate, message_size_bytes)
