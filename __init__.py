@@ -30,6 +30,7 @@ from emulation_config import *
 # Global parameters
 VMDS_ADDR = "127.0.0.1"
 VMDS_PORT = "2021"
+LOG_NAME = "aquanet.log"
 
 
 ## Class for handling send/recv communication with underlying AquaNet stack
@@ -39,6 +40,8 @@ class AquaNetManager:
         self.nodeId = nodeId
         self.baseFolder = baseFolder
         self.workingDir = baseFolder + "/tmp" + "/node" + str(self.nodeId)
+        self.logFilePath = self.workingDir + "/" + LOG_NAME
+        self.logFile = 0
         self.socketSendPath = self.workingDir + "/socket_send"
         self.socketRecvPath = self.workingDir + "/socket_recv"
         self.send_socket = 0
@@ -66,41 +69,44 @@ class AquaNetManager:
         try:
             # Bind the socket to the specified path
             self.recv_socket.bind(self.socketRecvPath)
-            print("Socket file created and bound to the Unix domain socket.")
+            print("socket file created and bound to the Unix domain socket.")
         except socket.error as e:
-            print("Error binding the socket:", e)
+            print("error binding the socket:", e)
             self.recv_socket.close()
             return
         self.recv_socket.listen(5)
 
+        # create log-file descriptor
+        self.logFile = open(self.logFilePath, "w")
+
         # start AquaNet stack
         if not self.isPortTaken(VMDS_PORT):
             print("starting local VMDS server")
-            subprocess.Popen(["../../bin/aquanet-vmds", VMDS_PORT], cwd=self.workingDir)
+            subprocess.Popen(["../../bin/aquanet-vmds", VMDS_PORT], cwd=self.workingDir, stdout=self.logFile, stderr=self.logFile)
             time.sleep(0.5)
 
         print("starting protocol stack...")
-        subprocess.Popen(["../../bin/aquanet-stack"], cwd=self.workingDir)
+        subprocess.Popen(["../../bin/aquanet-stack"], cwd=self.workingDir, stdout=self.logFile, stderr=self.logFile)
         time.sleep(0.5)
 
         print("starting VMDM client...")
-        subprocess.Popen(["../../bin/aquanet-vmdc", VMDS_ADDR, VMDS_PORT, str(self.nodeId), "0", "0", "0", str(PLR), str(CHANNEL_DELAY_MS), str(CHANNEL_JITTER)], cwd=self.workingDir)
+        subprocess.Popen(["../../bin/aquanet-vmdc", VMDS_ADDR, VMDS_PORT, str(self.nodeId), "0", "0", "0", str(PLR), str(CHANNEL_DELAY_MS), str(CHANNEL_JITTER)], cwd=self.workingDir, stdout=self.logFile, stderr=self.logFile)
         time.sleep(0.5)
 
         print("starting MAC protocol...")
-        subprocess.Popen(["../../bin/aquanet-bcmac"], cwd=self.workingDir)
+        subprocess.Popen(["../../bin/aquanet-bcmac"], cwd=self.workingDir, stdout=self.logFile, stderr=self.logFile)
         time.sleep(0.5)
 
         print("starting routing protocol...")
-        subprocess.Popen(["../../bin/aquanet-sroute"], cwd=self.workingDir)
+        subprocess.Popen(["../../bin/aquanet-sroute"], cwd=self.workingDir, stdout=self.logFile, stderr=self.logFile)
         time.sleep(0.5)
 
         print("starting transport layer...")
-        subprocess.Popen(["../../bin/aquanet-tra"], cwd=self.workingDir)
+        subprocess.Popen(["../../bin/aquanet-tra"], cwd=self.workingDir, stdout=self.logFile, stderr=self.logFile)
         time.sleep(0.5)
 
         print("starting application layer...")
-        subprocess.Popen(["../../bin/aquanet-socket-interface " + str(self.nodeId) + " " + self.socketSendPath + " " + self.socketRecvPath], cwd=self.workingDir, shell=True)
+        subprocess.Popen(["../../bin/aquanet-socket-interface " + str(self.nodeId) + " " + self.socketSendPath + " " + self.socketRecvPath], cwd=self.workingDir, stdout=self.logFile, stderr=self.logFile, shell=True)
         time.sleep(0.5)
 
         # Connect to unix socket for sending data
@@ -119,15 +125,15 @@ class AquaNetManager:
             self.send_socket.sendall(struct.pack("<h", destAddr))
             # send the message right after
             self.send_socket.sendall(message)
-            print("Message sent:", message)
+            # print("Message sent:", message)
         except socket.error as e:
             print("Error sending data:", e)
 
 
     ## Publish ROS message to AquaNet stack, do serialization
     def publish(self, rosMsg):
-        print("Publishing ROS message:")
-        print(rosMsg)
+        # print("Publishing ROS message:")
+        # print(rosMsg)
         buff = BytesIO()
         rosMsg.serialize(buff)
         bytestring = buff.getvalue()
@@ -156,7 +162,7 @@ class AquaNetManager:
                 break
             # Process the received data
             if deserialize:
-                print("Received msg:", data)
+                # print("Received msg:", data)
                 # deserialize ros msg
                 recvRosMsg = Waypoint()
                 recvRosMsg.deserialize(data)
@@ -188,3 +194,4 @@ class AquaNetManager:
     def stop(self):
         print("stopping aquanet...")
         subprocess.Popen(self.baseFolder + "/scripts/stack-stop.sh", shell=True)
+        self.logFile.close()

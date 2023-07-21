@@ -9,10 +9,8 @@ Created on Jul 17, 2023
 
 This application generates and sends random messages according to Poisson distribution to AquaNet.
 
-The app also receives incmoing messages from AquaNet and gathers basic statistics:
-- Packet Delivery Ratio (PDR): percentage of delivered messages vs. total number of sent messages;
-- Throughput: current inbound data rate;
-- Delay: end-to-end packet latency, i.e. how long it took for a packet to get received by destination.
+The app also receives incmoing messages from AquaNet and gathers info about basic TX/RX events.
+Each TX/RX event is written to a trace file for further processing.
 """
 
 
@@ -20,54 +18,66 @@ from threading import Thread
 import struct
 import string
 import random
+import datetime
+import time
 import sys
 
 # Import aquanet_lib module
 from __init__ import *
 
-# Define AquaNet parameters. Note: change them according to your config
-AQUANET_NODE_ID = 1     # address of local/source node
-AQUANET_DEST_ID = 2     # destination address of generated messages
+# Define AquaNet parameters. Note: change base folder according to your config.
 AQUANET_BASE_FOLDER = "/home/dmitrii/aquanet_lib"
 AQUANET_MAX_PAYLOAD_SIZE_BYTES = 500    # maximum user payload allowed by AquaNet app stack
 
+# Maintain trace-file to process TX/RX stats
+TRACE_NAME = datetime.datetime.now().strftime("%d-%m-%Y-%H:%M:%S") + ".tr"
+TRACE_FILE = open(TRACE_NAME, "w")
 
 # create, serialize/deserialize a message with the following format:
-# | SRC_ID | SEQ_NO |    PAYLOAD     |   CRC   |
-# |  1Byte | 4Bytes |   1-N Bytes    |  1Byte  |
+# |   TIMESTAMP   | SRC_ID  | SEQ_NO  |    PAYLOAD     |   CRC    |
+# |   8 Bytes     | 1 Byte  | 4 Bytes |   1-N Bytes    |  1 Byte  |
 class Message:
-    def __init__(self, src_id, seq_no, payload, crc=0):
+    def __init__(self, timestamp_ms, src_id, seq_no, payload, crc=0):
+        self.timestamp_ms = timestamp_ms
         self.src_id = src_id
         self.seq_no = seq_no
         self.payload = payload
         self.crc = crc
 
-    def calculate_crc(self):
-        crc_value = (self.src_id + self.seq_no + sum(ord(char) for char in self.payload)) % 256
-        return crc_value
-
     def toBytes(self):
         payload_length = len(self.payload)
-        self.crc = self.calculate_crc()
-        message_format = '>BI{}sB'.format(payload_length)
+        self.crc = calculate_crc(self.timestamp_ms, self.src_id, self.seq_no, self.payload)
+        message_format = '>QBI{}sB'.format(payload_length)
         # print(message_format)
-        message_data = struct.pack(message_format, self.src_id, self.seq_no, self.payload.encode(), self.crc)
+        message_data = struct.pack(message_format, self.timestamp_ms, self.src_id, self.seq_no, self.payload.encode(), self.crc)
         return bytearray(message_data)
 
     @classmethod
     def fromBytes(self, message_bytearray):
-        message_format = '>BI'
-        src_id, seq_no = struct.unpack(message_format, message_bytearray[:5])
-        payload_length = len(message_bytearray[5:-1])
+        message_format = '>QBI'
+        timestamp_ms, src_id, seq_no = struct.unpack(message_format, message_bytearray[:13])
+        payload_length = len(message_bytearray[13:-1])
         payload_format = '>{}sB'.format(payload_length)
-        payload, crc = struct.unpack(payload_format, message_bytearray[5:])
-        return Message(src_id, seq_no, payload, crc)
+        payload, crc = struct.unpack(payload_format, message_bytearray[13:])
+        payload = payload.decode()
+        return Message(timestamp_ms, src_id, seq_no, payload, crc)
+
+
+# calculate 1-byte crc for given message fields
+def calculate_crc(timestamp_ms, src_id, seq_no, payload):
+    crc_value = (timestamp_ms + src_id + seq_no + sum(ord(char) for char in payload)) % 256
+    return crc_value
 
 
 # return random delay in milliseconds, according to Poisson/exponential distribution
 def poisson_ms(rate):
     time_interval = random.expovariate(rate)
     return time_interval * 1000     # in milliseconds
+
+
+# get current timestamp in milliseconds
+def getTimeMs():
+    return int(time.time()*1000)
 
 
 # generate next random message
@@ -80,21 +90,23 @@ def generateMsg(src_id, seq_no, str_length):
     payload = generate_random_string(str_length)
 
     # create a message object
-    message = Message(src_id, seq_no, payload)
+    time_ms = getTimeMs()
+    message = Message(time_ms, src_id, seq_no, payload)
     return message.toBytes()
-
-    # # Converting the bytearray back to a message object
-    # reconstructed_message = Message.fromBytes(message_bytearray)
-    # print(reconstructed_message.src_id)
-    # print(reconstructed_message.seq_no)
-    # print(reconstructed_message.payload)
-    # print(reconstructed_message.crc)
 
 
 # receive thread
 def receive(aquaNet):
     def callback(msg):
-        print("Callback on received msg:", msg)
+        print("Processing incoming message:", msg)
+        # Converting the bytearray back to a message object
+        reconstructed_message = Message.fromBytes(msg)
+        print(reconstructed_message.timestamp_ms)
+        print(reconstructed_message.src_id)
+        print(reconstructed_message.seq_no)
+        print(reconstructed_message.payload)
+        print(reconstructed_message.crc)
+        print(calculate_crc(reconstructed_message.timestamp_ms, reconstructed_message.src_id, reconstructed_message.seq_no, reconstructed_message.payload))
 
     try:
         # Receive messages from AquaNet
@@ -106,31 +118,30 @@ def receive(aquaNet):
 
 
 # init AquaNet, init receive thread, keep sending in main thread
-def main(lambda_rate, msg_size):
+def main(src_addr, dst_addr, lambda_rate, msg_size):
     # initialize aquanet-stack
-    aquaNetManager = AquaNetManager(AQUANET_NODE_ID, AQUANET_BASE_FOLDER)
+    aquaNetManager = AquaNetManager(src_addr, AQUANET_BASE_FOLDER)
     aquaNetManager.initAquaNet()
+
+    # check if lambda is zero. If yes, do not generate any traffic, keep listening in main thread
+    if (lambda_rate == 0.0):
+        print("Lambda rate is set to zero. No traffic generation, only listening.")
+        receive(aquaNetManager)
+        aquaNetManager.stop()
+        TRACE_FILE.close()
+        return 0
 
     # start the receive thread
     recvThread = Thread(target=receive, args=(aquaNetManager,))
     recvThread.start()
-
-    # check if lambda is zero. If yes, do not generate any traffic, just sleep
-    try:
-        while lambda_rate == 0.0:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        print("Keyboard interrupt received. Exiting gracefully.")
-        aquaNetManager.stop()
-        return 0
 
     # keep sending messages to AquaNet
     print("start sending messages to AquaNet")
     try:
         i = 0
         while True:
-            msg = generateMsg(AQUANET_NODE_ID, i, msg_size)
-            aquaNetManager.send(msg, AQUANET_DEST_ID)
+            msg = generateMsg(src_addr, i, msg_size)
+            aquaNetManager.send(msg, dst_addr)
             delay = round(poisson_ms(lambda_rate) / 1000., 2)
             print("Sending message after a delay of {} seconds.".format(delay))
             time.sleep(delay)
@@ -142,17 +153,20 @@ def main(lambda_rate, msg_size):
     # stop aquanet stack at the end
     recvThread.join()
     aquaNetManager.stop()
+    TRACE_FILE.close()
     return 0
 
 
 if __name__ == '__main__':
     # Parse command line arguments
-    if len(sys.argv) != 3:
-        print("Usage: ./poisson_traffic <lambda_rate> <message_size_bytes>")
+    if len(sys.argv) != 5:
+        print("Usage: ./poisson_traffic <src_addr> <dst_addr> <lambda_rate> <message_size_bytes>")
         sys.exit(1)
     try:
-        lambda_rate = float(sys.argv[1])
-        message_size_bytes = int(sys.argv[2])
+        src_addr = int(sys.argv[1])
+        dst_addr = int(sys.argv[2])
+        lambda_rate = float(sys.argv[3])
+        message_size_bytes = int(sys.argv[4])
     except ValueError:
         print("Invalid arguments. Lambda rate must be a float, and message size must be an integer.")
         sys.exit(1)
@@ -160,11 +174,22 @@ if __name__ == '__main__':
         print("Lambda rate must be bigger than zero.")
         sys.exit(1)
     if (message_size_bytes < 1 or message_size_bytes > AQUANET_MAX_PAYLOAD_SIZE_BYTES):
-        print("Lambda rate must be bigger than zero.")
+        print("Message size must be between 1 and {} bytes.".format(AQUANET_MAX_PAYLOAD_SIZE_BYTES))
         sys.exit(1)
-    # switch to listening mode only, if lambda is zero
-    if (lambda_rate == 0.0):
-        print("Lambda rate is set to zero. No traffic generation, only listening.")
+    if (src_addr < 1 or src_addr > 254):
+        print("Source address must be in 1-254 range.")
+        sys.exit(1)
+    if (dst_addr < 1 or dst_addr > 255):
+        print("Destination address must be in 1-255 range.")
+        sys.exit(1)
+
+    # put the command name to the first line of the trace-file
+    TRACE_FILE.write(str(sys.argv) + "\n")
+    TRACE_FILE.flush()
+
+    # put the trace format to the second line
+    TRACE_FILE.write("Trace format: TIMESTAMP : NODE_ID : TX-RX : SOURCE_ID : DEST_ID : SEQ_NO : PAYLOAD_SIZE : DELAY : CRC_FAILED\n")
+    TRACE_FILE.flush()
 
     # run program
-    main(lambda_rate, message_size_bytes)
+    main(src_addr, dst_addr, lambda_rate, message_size_bytes)
