@@ -34,38 +34,41 @@ TRACE_NAME = datetime.datetime.now().strftime("%d-%m-%Y-%H:%M:%S") + ".tr"
 TRACE_FILE = open(TRACE_NAME, "w")
 
 # create, serialize/deserialize a message with the following format:
-# |   TIMESTAMP   | SRC_ID  | SEQ_NO  |    PAYLOAD     |   CRC    |
-# |   8 Bytes     | 1 Byte  | 4 Bytes |   1-N Bytes    |  1 Byte  |
+# |   TIMESTAMP   | SRC_ID  | DST_ID  | SEQ_NO  |    PAYLOAD     |   CRC    |
+# |   8 Bytes     | 1 Byte  | 1 Byte  | 4 Bytes |   1-N Bytes    |  1 Byte  |
 class Message:
-    def __init__(self, timestamp_ms, src_id, seq_no, payload, crc=0):
+    # how many bytes are added to the actual message/payload, i.e. timestamp, crc, etc.
+    overhead_size = 8 + 1 + 1 + 4 + 1
+    def __init__(self, timestamp_ms, src_id, dst_id, seq_no, payload, crc=0):
         self.timestamp_ms = timestamp_ms
         self.src_id = src_id
+        self.dst_id = dst_id
         self.seq_no = seq_no
         self.payload = payload
         self.crc = crc
 
     def toBytes(self):
         payload_length = len(self.payload)
-        self.crc = calculate_crc(self.timestamp_ms, self.src_id, self.seq_no, self.payload)
-        message_format = '>QBI{}sB'.format(payload_length)
+        self.crc = calculate_crc(self.timestamp_ms, self.src_id, self.dst_id, self.seq_no, self.payload)
+        message_format = '>QBBI{}sB'.format(payload_length)
         # print(message_format)
-        message_data = struct.pack(message_format, self.timestamp_ms, self.src_id, self.seq_no, self.payload.encode(), self.crc)
+        message_data = struct.pack(message_format, self.timestamp_ms, self.src_id, self.dst_id, self.seq_no, self.payload.encode(), self.crc)
         return bytearray(message_data)
 
     @classmethod
     def fromBytes(self, message_bytearray):
-        message_format = '>QBI'
-        timestamp_ms, src_id, seq_no = struct.unpack(message_format, message_bytearray[:13])
-        payload_length = len(message_bytearray[13:-1])
+        message_format = '>QBBI'
+        timestamp_ms, src_id, dst_id, seq_no = struct.unpack(message_format, message_bytearray[:14])
+        payload_length = len(message_bytearray[14:-1])
         payload_format = '>{}sB'.format(payload_length)
-        payload, crc = struct.unpack(payload_format, message_bytearray[13:])
+        payload, crc = struct.unpack(payload_format, message_bytearray[14:])
         payload = payload.decode()
-        return Message(timestamp_ms, src_id, seq_no, payload, crc)
+        return Message(timestamp_ms, src_id, dst_id, seq_no, payload, crc)
 
 
 # calculate 1-byte crc for given message fields
-def calculate_crc(timestamp_ms, src_id, seq_no, payload):
-    crc_value = (timestamp_ms + src_id + seq_no + sum(ord(char) for char in payload)) % 256
+def calculate_crc(timestamp_ms, src_id, dst_id, seq_no, payload):
+    crc_value = (timestamp_ms + src_id + dst_id + seq_no + sum(ord(char) for char in payload)) % 256
     return crc_value
 
 
@@ -81,7 +84,7 @@ def getTimeMs():
 
 
 # generate next random message
-def generateMsg(src_id, seq_no, str_length):
+def generateMsg(src_id, dst_id, seq_no, str_length):
     def generate_random_string(length):
         letters = string.ascii_letters + string.digits + string.punctuation
         return ''.join(random.choice(letters) for _ in range(length))
@@ -91,22 +94,51 @@ def generateMsg(src_id, seq_no, str_length):
 
     # create a message object
     time_ms = getTimeMs()
-    message = Message(time_ms, src_id, seq_no, payload)
-    return message.toBytes()
+    message = Message(time_ms, src_id, dst_id, seq_no, payload)
+    return message, message.toBytes()
+
+
+# update trace-file with TX/RX event
+def updateTrace(nodeId, msg, eventType):
+    if not (eventType == "t" or eventType == "r"):      # t - TX event; r - RX event;
+        print("Error: unkown event type. Skipping.")
+        return
+
+    trace_str = ""
+    delimeter = ":"
+    # populate trace file according the format
+    trace_str += eventType + delimeter
+    trace_str += str(nodeId) + delimeter
+    trace_str += str(msg.src_id) + delimeter
+    trace_str += str(msg.dst_id) + delimeter
+    trace_str += str(msg.seq_no) + delimeter
+    trace_str += str(len(msg.payload) + Message.overhead_size) + delimeter
+    # calc delay
+    delay_ms = 0               # zero delay for TX-event
+    if (eventType == "r"):
+        delay_ms = getTimeMs() - msg.timestamp_ms
+    trace_str += str(delay_ms) + delimeter
+    # check if CRC check fails
+    crc_failed = 0             # irrelevant for TX-event
+    if (eventType == "r"):
+        crc = calculate_crc(msg.timestamp_ms, msg.src_id, msg.dst_id, msg.seq_no, msg.payload)
+        if (crc != msg.crc):
+            crc_failed = 1
+    trace_str += str(crc_failed) + delimeter
+    trace_str += str(time.time()) + "\n"
+
+    # write to trace
+    TRACE_FILE.write(trace_str)
+    TRACE_FILE.flush()
 
 
 # receive thread
-def receive(aquaNet):
+def receive(node_id, aquaNet):
     def callback(msg):
         print("Processing incoming message:", msg)
         # Converting the bytearray back to a message object
-        reconstructed_message = Message.fromBytes(msg)
-        print(reconstructed_message.timestamp_ms)
-        print(reconstructed_message.src_id)
-        print(reconstructed_message.seq_no)
-        print(reconstructed_message.payload)
-        print(reconstructed_message.crc)
-        print(calculate_crc(reconstructed_message.timestamp_ms, reconstructed_message.src_id, reconstructed_message.seq_no, reconstructed_message.payload))
+        msgObj = Message.fromBytes(msg)
+        updateTrace(node_id, msgObj, "r")
 
     try:
         # Receive messages from AquaNet
@@ -126,13 +158,13 @@ def main(src_addr, dst_addr, lambda_rate, msg_size):
     # check if lambda is zero. If yes, do not generate any traffic, keep listening in main thread
     if (lambda_rate == 0.0):
         print("Lambda rate is set to zero. No traffic generation, only listening.")
-        receive(aquaNetManager)
+        receive(src_addr, aquaNetManager)
         aquaNetManager.stop()
         TRACE_FILE.close()
         return 0
 
     # start the receive thread
-    recvThread = Thread(target=receive, args=(aquaNetManager,))
+    recvThread = Thread(target=receive, args=(src_addr, aquaNetManager,))
     recvThread.start()
 
     # keep sending messages to AquaNet
@@ -140,8 +172,9 @@ def main(src_addr, dst_addr, lambda_rate, msg_size):
     try:
         i = 0
         while True:
-            msg = generateMsg(src_addr, i, msg_size)
+            msgObj, msg = generateMsg(src_addr, dst_addr, i, msg_size)
             aquaNetManager.send(msg, dst_addr)
+            updateTrace(src_addr, msgObj, "t")
             delay = round(poisson_ms(lambda_rate) / 1000., 2)
             print("Sending message after a delay of {} seconds.".format(delay))
             time.sleep(delay)
@@ -188,7 +221,7 @@ if __name__ == '__main__':
     TRACE_FILE.flush()
 
     # put the trace format to the second line
-    TRACE_FILE.write("Trace format: TIMESTAMP : NODE_ID : TX-RX : SOURCE_ID : DEST_ID : SEQ_NO : PAYLOAD_SIZE : DELAY : CRC_FAILED\n")
+    TRACE_FILE.write("Trace format: TX-RX : NODE_ID : SOURCE_ID : DEST_ID : SEQ_NO : FRAME_SIZE : DELAY_MS : CRC_FAILED : TIMESTAMP\n")
     TRACE_FILE.flush()
 
     # run program
