@@ -18,7 +18,6 @@ from threading import Thread
 import struct
 import string
 import random
-import datetime
 import time
 import sys
 
@@ -29,9 +28,6 @@ from __init__ import *
 AQUANET_BASE_FOLDER = "/home/dmitrii/aquanet_lib"
 AQUANET_MAX_PAYLOAD_SIZE_BYTES = 500    # maximum user payload allowed by AquaNet app stack
 
-# Maintain trace-file to process TX/RX stats
-TRACE_NAME = datetime.datetime.now().strftime("%d-%m-%Y-%H:%M:%S") + ".tr"
-TRACE_FILE = open(TRACE_NAME, "w")
 
 # create, serialize/deserialize a message with the following format:
 # |   TIMESTAMP   | SRC_ID  | DST_ID  | SEQ_NO  |    PAYLOAD     |   CRC    |
@@ -216,12 +212,17 @@ if __name__ == '__main__':
         print("Destination address must be in 1-255 range.")
         sys.exit(1)
 
+    # Create trace-file to process TX/RX stats
+    # filename format: nodeId-lambda-msgSize.tr
+    TRACE_NAME = str(src_addr) + "-" + str(lambda_rate) + "-" + str(message_size_bytes) + ".tr"
+    TRACE_FILE = open(TRACE_NAME, "w")
+
     # put the command name to the first line of the trace-file
     TRACE_FILE.write(str(sys.argv) + "\n")
     TRACE_FILE.flush()
 
     # put the trace format to the second line
-    TRACE_FILE.write("Trace format: TX-RX : NODE_ID : SOURCE_ID : DEST_ID : SEQ_NO : FRAME_SIZE : DELAY_MS : CRC_FAILED : TIMESTAMP\n")
+    TRACE_FILE.write("TX-RX : NODE_ID : SOURCE_ID : DEST_ID : SEQ_NO : FRAME_SIZE : DELAY_MS : CRC_FAILED : TIMESTAMP\n")
     TRACE_FILE.flush()
 
     # run program
