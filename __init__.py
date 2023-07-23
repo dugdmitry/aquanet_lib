@@ -36,7 +36,7 @@ LOG_NAME = "aquanet.log"
 ## Class for handling send/recv communication with underlying AquaNet stack
 class AquaNetManager:
     ## Constructor
-    def __init__(self, nodeId, baseFolder):
+    def __init__(self, nodeId, baseFolder, macProto="BCMAC", trumacMaxNode=2, trumacContentionTimeoutMs=60000, trumacGuardTimeMs=100):
         self.nodeId = nodeId
         self.baseFolder = baseFolder
         self.workingDir = baseFolder + "/tmp" + "/node" + str(self.nodeId)
@@ -47,6 +47,11 @@ class AquaNetManager:
         self.send_socket = 0
         self.recv_socket = 0
         self.publishAddr = 0    # store default publishing address when using publish() method
+        self.macProto = macProto  # BCMAC by default
+        # default TRUMAC params
+        self.trumacMaxNode = trumacMaxNode
+        self.trumacContentionTimeoutMs = trumacContentionTimeoutMs
+        self.trumacGuardTimeMs = trumacGuardTimeMs
 
         # refresh working directory from previous sessions
         subprocess.Popen("rm -r " + self.workingDir, shell=True).wait()
@@ -58,8 +63,21 @@ class AquaNetManager:
         subprocess.Popen("cp " + baseFolder + "/configs/" + "config_arp.cfg" + " " + self.workingDir, shell=True).wait()
         subprocess.Popen("cp " + baseFolder + "/configs/" + "config_conn.cfg" + " " + self.workingDir, shell=True).wait()
         subprocess.Popen("cp " + baseFolder + "/configs/" + "config_net.cfg" + " " + self.workingDir, shell=True).wait()
-        # copy bc-mac configuration file
-        subprocess.Popen("cp " + baseFolder + "/configs/" + "aquanet-bcmac.cfg" + " " + self.workingDir, shell=True).wait()
+        if (self.macProto == "BCMAC"):
+            # copy bc-mac configuration file
+            subprocess.Popen("cp " + baseFolder + "/configs/" + "aquanet-bcmac.cfg" + " " + self.workingDir, shell=True).wait()
+        elif (self.macProto == "ALOHA"):
+            # aloha has no configuration file
+            pass
+        elif (self.macProto == "TRUMAC"):
+            subprocess.Popen("touch " + self.workingDir + "/aquanet-trumac.cfg", shell=True).wait()
+            # put max node_id : contention_timeout_ms : guard_time_ms parameters
+            subprocess.Popen("echo " + str(self.trumacMaxNode) + " : " + str(self.trumacContentionTimeoutMs) + " : " + str(self.trumacGuardTimeMs) + " > " + self.workingDir + "/aquanet-trumac.cfg", shell=True).wait()
+        else:
+            print("ERROR! Unkown MAC protocol provided. Using BCMAC instead.")
+            # copy bc-mac configuration file
+            subprocess.Popen("cp " + baseFolder + "/configs/" + "aquanet-bcmac.cfg" + " " + self.workingDir, shell=True).wait()
+            self.macProto = "BCMAC"
 
     ## Initialize AquaNet processes
     def initAquaNet(self):
@@ -93,9 +111,18 @@ class AquaNetManager:
         subprocess.Popen(["../../bin/aquanet-vmdc", VMDS_ADDR, VMDS_PORT, str(self.nodeId), "0", "0", "0", str(PLR), str(CHANNEL_DELAY_MS), str(CHANNEL_JITTER)], cwd=self.workingDir, stdout=self.logFile, stderr=self.logFile)
         time.sleep(0.5)
 
-        print("starting MAC protocol...")
-        subprocess.Popen(["../../bin/aquanet-bcmac"], cwd=self.workingDir, stdout=self.logFile, stderr=self.logFile)
-        time.sleep(0.5)
+        if (self.macProto == "BCMAC"):
+            print("starting BCMAC MAC protocol...")
+            subprocess.Popen(["../../bin/aquanet-bcmac"], cwd=self.workingDir, stdout=self.logFile, stderr=self.logFile)
+            time.sleep(0.5)
+        if (self.macProto == "ALOHA"):
+            print("starting ALOHA MAC protocol...")
+            subprocess.Popen(["../../bin/aquanet-uwaloha"], cwd=self.workingDir, stdout=self.logFile, stderr=self.logFile)
+            time.sleep(0.5)
+        if (self.macProto == "TRUMAC"):
+            print("starting TRUMAC MAC protocol...")
+            subprocess.Popen(["../../bin/aquanet-trumac"], cwd=self.workingDir, stdout=self.logFile, stderr=self.logFile)
+            time.sleep(0.5)
 
         print("starting routing protocol...")
         subprocess.Popen(["../../bin/aquanet-sroute"], cwd=self.workingDir, stdout=self.logFile, stderr=self.logFile)
@@ -120,6 +147,9 @@ class AquaNetManager:
 
     ## Send to AquaNet
     def send(self, message, destAddr):
+        if (self.macProto == "ALOHA" and destAddr == 255):
+            print("Error! ALOHA does not support broadcast transmission. Skip sending.")
+            return
         try:
             # set the destAddr first
             self.send_socket.sendall(struct.pack("<h", destAddr))

@@ -28,6 +28,10 @@ from __init__ import *
 AQUANET_BASE_FOLDER = "/home/dmitrii/aquanet_lib"
 AQUANET_MAX_PAYLOAD_SIZE_BYTES = 500    # maximum user payload allowed by AquaNet app stack
 
+# Default TRUMAC parameters
+TRUMAC_MAX_NODE_ID = 2
+TRUMAC_CONTENTION_MS = 5000
+TRUMAC_GUARD_TIME_MS = 100
 
 # create, serialize/deserialize a message with the following format:
 # |   TIMESTAMP   | SRC_ID  | DST_ID  | SEQ_NO  |    PAYLOAD     |   CRC    |
@@ -146,9 +150,12 @@ def receive(node_id, aquaNet):
 
 
 # init AquaNet, init receive thread, keep sending in main thread
-def main(src_addr, dst_addr, lambda_rate, msg_size):
+def main(src_addr, dst_addr, lambda_rate, msg_size, macProto):
     # initialize aquanet-stack
-    aquaNetManager = AquaNetManager(src_addr, AQUANET_BASE_FOLDER)
+    aquaNetManager = AquaNetManager(src_addr, AQUANET_BASE_FOLDER, macProto=macProto, 
+                                    trumacMaxNode=TRUMAC_MAX_NODE_ID, 
+                                    trumacContentionTimeoutMs=TRUMAC_CONTENTION_MS, 
+                                    trumacGuardTimeMs=TRUMAC_GUARD_TIME_MS)
     aquaNetManager.initAquaNet()
 
     # check if lambda is zero. If yes, do not generate any traffic, keep listening in main thread
@@ -188,17 +195,36 @@ def main(src_addr, dst_addr, lambda_rate, msg_size):
 
 if __name__ == '__main__':
     # Parse command line arguments
-    if len(sys.argv) != 5:
-        print("Usage: ./poisson_traffic <src_addr> <dst_addr> <lambda_rate> <message_size_bytes>")
+    if len(sys.argv) < 6:
+        print("Usage: ./poisson_traffic <src_addr> <dst_addr> <lambda_rate> <message_size_bytes> <MAC protocol>")
         sys.exit(1)
     try:
         src_addr = int(sys.argv[1])
         dst_addr = int(sys.argv[2])
         lambda_rate = float(sys.argv[3])
         message_size_bytes = int(sys.argv[4])
+        macProto = str(sys.argv[5])
     except ValueError:
         print("Invalid arguments. Lambda rate must be a float, and message size must be an integer.")
         sys.exit(1)
+
+    if not (macProto == "BCMAC" or macProto == "ALOHA" or macProto == "TRUMAC"):
+        print("Unknown MAC protocol specified. Exiting.")
+        print(macProto)
+        sys.exit(1)
+
+    # do additional check for TRUMAC 
+    if (macProto == "TRUMAC"):
+        if len(sys.argv) == 7:
+            TRUMAC_MAX_NODE_ID = int(sys.argv[6])
+        if len(sys.argv) == 8:
+            TRUMAC_MAX_NODE_ID = int(sys.argv[6])
+            TRUMAC_CONTENTION_MS = int(sys.argv[7])
+        if len(sys.argv) == 9:
+            TRUMAC_MAX_NODE_ID = int(sys.argv[6])
+            TRUMAC_CONTENTION_MS = int(sys.argv[7])
+            TRUMAC_GUARD_TIME_MS = int(sys.argv[8])
+
     if (lambda_rate < 0.0):
         print("Lambda rate must be bigger than zero.")
         sys.exit(1)
@@ -226,4 +252,4 @@ if __name__ == '__main__':
     TRACE_FILE.flush()
 
     # run program
-    main(src_addr, dst_addr, lambda_rate, message_size_bytes)
+    main(src_addr, dst_addr, lambda_rate, message_size_bytes, macProto)
