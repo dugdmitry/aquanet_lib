@@ -36,7 +36,7 @@ LOG_NAME = "aquanet.log"
 ## Class for handling send/recv communication with underlying AquaNet stack
 class AquaNetManager:
     ## Constructor
-    def __init__(self, nodeId, baseFolder, macProto="BCMAC", trumacMaxNode=2, trumacContentionTimeoutMs=60000, trumacGuardTimeMs=100):
+    def __init__(self, nodeId, baseFolder, arm=False, gatech=False, macProto="BCMAC", trumacMaxNode=2, trumacContentionTimeoutMs=60000, trumacGuardTimeMs=100):
         self.nodeId = nodeId
         self.baseFolder = baseFolder
         self.workingDir = baseFolder + "/tmp" + "/node" + str(self.nodeId)
@@ -52,6 +52,12 @@ class AquaNetManager:
         self.trumacMaxNode = trumacMaxNode
         self.trumacContentionTimeoutMs = trumacContentionTimeoutMs
         self.trumacGuardTimeMs = trumacGuardTimeMs
+        # check if ARM platform or not
+        self.armFolder = ""
+        if arm:
+            self.armFolder = "arm/"
+        # decide whether to use VMDS emulation or GATECH driver
+        self.gatech = gatech
 
         # refresh working directory from previous sessions
         subprocess.Popen("rm -r " + self.workingDir, shell=True).wait()
@@ -79,6 +85,10 @@ class AquaNetManager:
             subprocess.Popen("cp " + baseFolder + "/configs/" + "aquanet-bcmac.cfg" + " " + self.workingDir, shell=True).wait()
             self.macProto = "BCMAC"
 
+        # copy GATech serial interface configuration
+        if self.gatech:
+            subprocess.Popen("cp " + baseFolder + "/configs/" + "aquanet-ser.cfg" + " " + self.workingDir, shell=True).wait()
+
     ## Initialize AquaNet processes
     def initAquaNet(self):
         # create a recv_socket for receiving incoming connections from AquaNet
@@ -98,42 +108,48 @@ class AquaNetManager:
         self.logFile = open(self.logFilePath, "w")
 
         # start AquaNet stack
-        if not self.isPortTaken(VMDS_PORT):
+        if not self.isPortTaken(VMDS_PORT) and not self.gatech:
             print("starting local VMDS server")
-            subprocess.Popen(["../../bin/aquanet-vmds", VMDS_PORT], cwd=self.workingDir, stdout=self.logFile, stderr=self.logFile)
+            subprocess.Popen(["../../bin/" + self.armFolder + "aquanet-vmds", VMDS_PORT], cwd=self.workingDir, stdout=self.logFile, stderr=self.logFile)
             time.sleep(0.5)
 
         print("starting protocol stack...")
-        subprocess.Popen(["../../bin/aquanet-stack"], cwd=self.workingDir, stdout=self.logFile, stderr=self.logFile)
+        subprocess.Popen(["../../bin/" + self.armFolder + "aquanet-stack"], cwd=self.workingDir, stdout=self.logFile, stderr=self.logFile)
         time.sleep(0.5)
 
-        print("starting VMDM client...")
-        subprocess.Popen(["../../bin/aquanet-vmdc", VMDS_ADDR, VMDS_PORT, str(self.nodeId), "0", "0", "0", str(PLR), str(CHANNEL_DELAY_MS), str(CHANNEL_JITTER)], cwd=self.workingDir, stdout=self.logFile, stderr=self.logFile)
-        time.sleep(0.5)
+        if not self.gatech:
+            print("starting VMDM client...")
+            subprocess.Popen(["../../bin/" + self.armFolder + "aquanet-vmdc", VMDS_ADDR, VMDS_PORT, str(self.nodeId), "0", "0", "0", str(PLR), str(CHANNEL_DELAY_MS), str(CHANNEL_JITTER)], cwd=self.workingDir, stdout=self.logFile, stderr=self.logFile)
+            time.sleep(0.5)
+        else:
+            # start interface to real modem
+            print("starting GATech driver...")
+            subprocess.Popen(["../../bin/" + self.armFolder + "aquanet-gatech"], cwd=self.workingDir, stdout=self.logFile, stderr=self.logFile)
+            time.sleep(0.5)
 
         if (self.macProto == "BCMAC"):
             print("starting BCMAC MAC protocol...")
-            subprocess.Popen(["../../bin/aquanet-bcmac"], cwd=self.workingDir, stdout=self.logFile, stderr=self.logFile)
+            subprocess.Popen(["../../bin/" + self.armFolder + "aquanet-bcmac"], cwd=self.workingDir, stdout=self.logFile, stderr=self.logFile)
             time.sleep(0.5)
         if (self.macProto == "ALOHA"):
             print("starting ALOHA MAC protocol...")
-            subprocess.Popen(["../../bin/aquanet-uwaloha"], cwd=self.workingDir, stdout=self.logFile, stderr=self.logFile)
+            subprocess.Popen(["../../bin/" + self.armFolder + "aquanet-uwaloha"], cwd=self.workingDir, stdout=self.logFile, stderr=self.logFile)
             time.sleep(0.5)
         if (self.macProto == "TRUMAC"):
             print("starting TRUMAC MAC protocol...")
-            subprocess.Popen(["../../bin/aquanet-trumac"], cwd=self.workingDir, stdout=self.logFile, stderr=self.logFile)
+            subprocess.Popen(["../../bin/" + self.armFolder + "aquanet-trumac"], cwd=self.workingDir, stdout=self.logFile, stderr=self.logFile)
             time.sleep(0.5)
 
         print("starting routing protocol...")
-        subprocess.Popen(["../../bin/aquanet-sroute"], cwd=self.workingDir, stdout=self.logFile, stderr=self.logFile)
+        subprocess.Popen(["../../bin/" + self.armFolder + "aquanet-sroute"], cwd=self.workingDir, stdout=self.logFile, stderr=self.logFile)
         time.sleep(0.5)
 
         print("starting transport layer...")
-        subprocess.Popen(["../../bin/aquanet-tra"], cwd=self.workingDir, stdout=self.logFile, stderr=self.logFile)
+        subprocess.Popen(["../../bin/" + self.armFolder + "aquanet-tra"], cwd=self.workingDir, stdout=self.logFile, stderr=self.logFile)
         time.sleep(0.5)
 
         print("starting application layer...")
-        subprocess.Popen(["../../bin/aquanet-socket-interface " + str(self.nodeId) + " " + self.socketSendPath + " " + self.socketRecvPath], cwd=self.workingDir, stdout=self.logFile, stderr=self.logFile, shell=True)
+        subprocess.Popen(["../../bin/" + self.armFolder + "aquanet-socket-interface " + str(self.nodeId) + " " + self.socketSendPath + " " + self.socketRecvPath], cwd=self.workingDir, stdout=self.logFile, stderr=self.logFile, shell=True)
         time.sleep(0.5)
 
         # Connect to unix socket for sending data

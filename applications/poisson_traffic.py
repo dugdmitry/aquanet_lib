@@ -26,6 +26,9 @@ from __init__ import *
 
 # Define AquaNet parameters. Note: change base folder according to your config.
 AQUANET_BASE_FOLDER = "/home/dmitrii/aquanet_lib"
+ARM_PLATFORM = False
+USE_GATECH = False
+
 AQUANET_MAX_PAYLOAD_SIZE_BYTES = 500    # maximum user payload allowed by AquaNet app stack
 
 # Default TRUMAC parameters
@@ -155,7 +158,9 @@ def main(src_addr, dst_addr, lambda_rate, msg_size, macProto):
     aquaNetManager = AquaNetManager(src_addr, AQUANET_BASE_FOLDER, macProto=macProto, 
                                     trumacMaxNode=TRUMAC_MAX_NODE_ID, 
                                     trumacContentionTimeoutMs=TRUMAC_CONTENTION_MS, 
-                                    trumacGuardTimeMs=TRUMAC_GUARD_TIME_MS)
+                                    trumacGuardTimeMs=TRUMAC_GUARD_TIME_MS,
+                                    arm=ARM_PLATFORM,
+                                    gatech=USE_GATECH)
     aquaNetManager.initAquaNet()
 
     # check if lambda is zero. If yes, do not generate any traffic, keep listening in main thread
