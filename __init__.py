@@ -87,7 +87,7 @@ class AquaNetManager:
 
         # copy GATech serial interface configuration
         if self.gatech:
-            subprocess.Popen("cp " + baseFolder + "/configs/" + "aquanet_ser.cfg" + " " + self.workingDir, shell=True).wait()
+            subprocess.Popen("cp " + baseFolder + "/configs/" + "config_ser.cfg" + " " + self.workingDir, shell=True).wait()
 
     ## Initialize AquaNet processes
     def initAquaNet(self):
