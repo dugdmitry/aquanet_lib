@@ -23,7 +23,7 @@ def main():
     # Initialize aquanet-stack
     nodeAddr = 2
     baseFolder = "/home/dmitrii/aquanet_lib"
-    aquaNetManager = AquaNetManager(nodeAddr, baseFolder)
+    aquaNetManager = AquaNetManager(nodeAddr, baseFolder, macProto="TRUMAC", trumacContentionTimeoutMs=100, trumacGuardTimeMs=10)
     aquaNetManager.initAquaNet()
 
     try:
