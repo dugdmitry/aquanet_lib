@@ -133,7 +133,7 @@ class AquaNetManager:
             time.sleep(0.5)
         if (self.macProto == "ALOHA"):
             print("starting ALOHA MAC protocol...")
-            subprocess.Popen(["../../bin/" + self.armFolder + "aquanet-uwaloha"], cwd=self.workingDir, stdout=self.logFile, stderr=self.logFile)
+            subprocess.Popen(["../../bin/" + self.armFolder + "aquanet-aloha"], cwd=self.workingDir, stdout=self.logFile, stderr=self.logFile)
             time.sleep(0.5)
         if (self.macProto == "TRUMAC"):
             print("starting TRUMAC MAC protocol...")
@@ -163,9 +163,6 @@ class AquaNetManager:
 
     ## Send to AquaNet
     def send(self, message, destAddr):
-        if (self.macProto == "ALOHA" and destAddr == 255):
-            print("Error! ALOHA does not support broadcast transmission. Skip sending.")
-            return
         try:
             # set the destAddr first
             self.send_socket.sendall(struct.pack("<h", destAddr))
