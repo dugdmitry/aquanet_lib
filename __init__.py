@@ -16,6 +16,7 @@ import socket
 import time
 from io import BytesIO
 import struct
+import platform
 
 # import some ros-python module for serialization/deserialization
 try:
@@ -54,8 +55,19 @@ class AquaNetManager:
         self.trumacGuardTimeMs = trumacGuardTimeMs
         # check if ARM platform or not
         self.armFolder = ""
-        if arm:
+        platform_name = platform.machine()
+        if platform_name == "x86_64":
+            # x86 platform
+            self.armFolder = ""
+        elif platform_name == "armv7l":
+            # raspberry pi ARM platform
             self.armFolder = "arm/"
+        elif platform_name == "arm64":
+            # macOS arm platform
+            self.armFolder = "arm64/"
+        else:
+            print("Error! Unsupported CPU platform:", platform_name)
+            raise SystemError
         # decide whether to use VMDS emulation or GATECH driver
         self.gatech = gatech
 
